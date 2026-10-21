@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Ficha de entrega (contem dados pessoais; nao vai para o repo publico)
+*.docx
+
 # Saídas geradas ao rodar o exercício
 saidas/*
 !saidas/.gitkeep
