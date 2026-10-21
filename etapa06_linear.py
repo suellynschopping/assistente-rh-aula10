@@ -126,8 +126,22 @@ def processar(texto: str, hooks: RunHooks | None = None) -> dict:
 
 
 def testar_governanca() -> None:
-    # 🆕 B.4 (opcional) -- não implementado nesta entrega.
-    raise NotImplementedError("🆕 B.4: testar_governanca")
+    print("\n=== 🆕 B teste (a): Coordenador NAO pode usar consultar_remuneracao ===")
+    hooks_a = Governanca()
+    coordenador = agentes.criar_coordenador(hooks=hooks_a, tools_extras=[agentes.consultar_remuneracao])
+    try:
+        resposta = rodar_com_limites_sync(coordenador, "Qual o salario da matricula 1002?", hooks=hooks_a)
+        print(f"[FALHA] a tool restrita rodou: {resposta.final_output[:120]}")
+    except LimiteExcedido as erro:
+        print(f"[OK] barrado como esperado: {erro}")
+
+    print("\n=== 🆕 B teste (b): processar(C2) com max_tools=1 para antes do 2o especialista ===")
+    hooks_b = Governanca(max_tools=1)
+    try:
+        resultado = processar(CASOS["C2_ferias_com_venda"]["pedido"], hooks=hooks_b)
+        print(f"resultado: {resultado.get('resultado')}; motivo: {resultado.get('motivo')}")
+    except LimiteExcedido as erro:
+        print(f"[OK] barrado como esperado: {erro}")
 
 
 if __name__ == "__main__":

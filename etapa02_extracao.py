@@ -134,12 +134,29 @@ def extrair(texto: str) -> Pedido:
 
 # ------------------------------------------------------------------ 🆕 A: votação (OPCIONAL, bônus)
 # Para ligar no grafo depois de pronto: USAR_VOTACAO = True em etapa07_grafo.py.
-INSTRUCOES_VOTANTES: list[str] = []  # TODO 🆕 A.1 (opcional): preencha com 3 strings
+INSTRUCOES_VOTANTES: list[str] = [
+    # Extrator literal: segue o texto do servidor sem interpretar.
+    (f"Hoje e {texto_hoje()}. Voce extrai pedidos de RH (ferias, abono ou diaria). "
+     "Siga LITERALMENTE o que o servidor disse. Datas em AAAA-MM-DD; se o servidor nao disse o dia "
+     "exato, use null. Nao infira dias_vendidos se o servidor nao pediu explicitamente."),
+    # Extrator com checagem de calendario: usa o calendario para traduzir datas relativas.
+    (f"Hoje e {texto_hoje()}. Voce extrai pedidos de RH e usa o CALENDARIO para traduzir expressoes "
+     "como 'amanha', 'sexta que vem', 'proxima segunda' em AAAA-MM-DD. Se a expressao for ambigua "
+     "(ex.: 'perto da Pascoa'), use null em vez de adivinhar. dias_vendidos apenas se foi dito."),
+    # Extrator "pensa como o RH": zela pelas regras.
+    (f"Hoje e {texto_hoje()}. Voce e um analista de RH experiente extraindo pedidos. "
+     "Lembre: ferias tem minimo 5 dias, exigem 30 dias de antecedencia (N4), e abono e sempre 1 dia util. "
+     "Se o pedido claramente nao se encaixa, prefira null a inventar. dias_vendidos so quando "
+     "o servidor diz 'quero vender X dias' ou equivalente."),
+]
 
 
 async def extrair_com_votacao(texto: str) -> tuple[Pedido, bool, list[Pedido]]:
-    # 🆕 A.2 (opcional) -- este bônus não foi implementado nesta entrega.
-    raise NotImplementedError("🆕 A.2: extrair_com_votacao")
+    extratores = [criar_extrator(instrucoes) for instrucoes in INSTRUCOES_VOTANTES]
+    resultados = await asyncio.gather(*(Runner.run(e, texto) for e in extratores))
+    votos = [r.final_output for r in resultados]
+    pedido, divergencia = votar(votos)
+    return pedido, divergencia, votos
 
 
 def votar(votos: list[Pedido]) -> tuple[Pedido, bool]:

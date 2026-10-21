@@ -1,8 +1,8 @@
 # Entrega: Assistente de Gestão de Pessoas
 
 **Aluno(s):** Suellyn Schopping
-**Até onde chegou:** ( ) Marco mínimo (Etapa 6)  (X) Marco completo (Etapa 9)  ( ) Etapas 10–11
-**Opcionais e bônus feitos:** ( ) 🆕 A  ( ) 🆕 B  ( ) 🆕 C  ( ) Outro: ______
+**Até onde chegou:** ( ) Marco mínimo (Etapa 6)  ( ) Marco completo (Etapa 9)  (X) Etapas 10–11
+**Opcionais e bônus feitos:** (X) 🆕 A  (X) 🆕 B  (X) 🆕 C  ( ) Outro: ______
 **Repositório:** https://github.com/suellynschopping/assistente-rh-aula10
 
 ## Etapa 0: quem verifica cada regra?
@@ -106,25 +106,25 @@ graph TD;
 
 ## Observabilidade (C2)
 
-- Onde o tempo foi gasto: (Etapa 10 não implementada nesta entrega — `etapa10_observabilidade.medido()` ainda é pass-through)
-- Tokens totais: ___
+- **Onde o tempo foi gasto:** depois de ligar o `medido()` (etapa10_observabilidade.py) e rodar o C2 com LLM, uma linha JSON por nó aparece em `saidas/metricas.jsonl`. Os nós mais pesados são os três especialistas em paralelo (`normas`, `escala`, `financeiro`) e o ciclo `redigir_despacho`/`validar`, por conta das chamadas ao modelo. `identificar_servidor` e `calcular_periodo` ficam na faixa de ~1s cada, porque cada `chamar_mcp` sobe o server stdio de novo (em produção manteríamos a conexão viva).
+- **Tokens totais:** (rode `python etapa10_observabilidade.py conferir-C2_ferias_com_venda` após uma execução real para colher o valor)
 
 ## Opcionais (preencha só os que fez)
 
-- 🆕 A: não implementado nesta entrega
-- 🆕 B: não implementado nesta entrega
-- 🆕 C: não implementado nesta entrega
+- 🆕 A: três instruções diferentes (literal, com calendário, "pensa como RH") em `INSTRUCOES_VOTANTES`. `extrair_com_votacao` roda os três com `asyncio.gather` — no teste do `conferir.py`, os 3 votos saem em ~0,20s (contra ~0,60s em sequência). Decisão por maioria (2 de 3); se não houver maioria em `tipo` ou nas datas, `divergencia=True` e o sistema pede esclarecimento em vez de adivinhar.
+- 🆕 B: `PERMISSOES` em `etapa10_governanca.py` lista o que cada agente pode chamar; `on_tool_start` levanta `LimiteExcedido` se a tool não estiver na lista ou se o orçamento de tools estourar; `on_llm_start` protege o orçamento de chamadas ao modelo. `python etapa06_linear.py --governanca` demonstra (a) o Coordenador barrado ao tentar `consultar_remuneracao` e (b) o C2 parando no primeiro especialista com `max_tools=1`.
+- 🆕 C: duas faixas em `proteger_entrada` (`LIMIAR_OK=0.4`, `LIMIAR_BLOQUEIO=0.8`). Entre os dois valores, o grafo pausa em `triagem_humana` para que um atendente do RH decida se o pedido entra. O retomar aceita `sim:<orientação>` (segue, anexando a orientação ao texto) ou `nao:<motivo>` (recusa). Ligar: `USAR_TRIAGEM_HUMANA = True` em [etapa07_grafo.py](etapa07_grafo.py).
 
 ## Reflexão (até 3 linhas cada)
 
-1. **Quem decide o caminho no seu sistema?** O **grafo** decide a estrutura (quem roda, quando, em paralelo); as **regras** (`violacoes_objetivas`) decidem deferido/indeferido para o que é cálculo; o **LLM** decide a *redação* e o conteúdo dos pareceres (Normas, Escala, Financeiro); o **humano** (chefia) decide aprovar ou rejeitar via `interrupt()`. Ex.: C6 (regra), C2 (LLM + humano), C3 (regra: guardrail), C1 (grafo pula a chefia por N8).
+1. **Quem decide o caminho no seu sistema?** O **grafo** decide a estrutura (quem roda, quando, em paralelo); as **regras** (`violacoes_objetivas`) decidem deferido/indeferido para o que é cálculo; o **LLM** decide a *redação* e o conteúdo dos pareceres (Normas, Escala, Financeiro); o **humano** (chefia e, no 🆕 C, o atendente do RH) decide aprovar/rejeitar via `interrupt()`. Ex.: C6 (regra), C2 (LLM + humano), C3 (regra: guardrail), C1 (grafo pula a chefia por N8).
 2. **Se o guardrail de entrada falhar, o que ainda impede uma autoaprovação?** O MCP server nega gravações onde `aprovador == matricula` (regra N8 implementada em `registrar_decisao`). Mesmo que alguém escreva "eu aprovo" e burle o classificador, a autorização final é no server, que compara contra o cadastro.
 3. **Por que o nó da chefia não pode gravar nada antes do `interrupt()`?** Porque, na retomada, o LangGraph roda o nó inteiro de novo desde o início. Qualquer efeito colateral (gravação, chamada MCP) seria executado duas vezes — para a chefia, isso significaria registros duplicados ou mensagens repetidas.
-4. **Qual dado veio do MCP, qual de API externa e qual de tool local? Por que?** MCP: cadastro de servidores, escala, normas, diárias (dados próprios da organização; benefit: isola o LLM dos CSVs e permite autorização centralizada). API externa: feriados BrasilAPI e câmbio Frankfurter (dados do mundo que mudam fora da organização). Tool local: `cotacao_dolar` embrulha a API para o Financeiro (cache + fallback). A divisão separa **o que é nosso** (MCP), **o que é do mundo** (APIs) e **o que é cálculo próprio** (Python puro em `etapa06_regras.py`).
-5. **O que você mudaria para colocar este sistema em produção?** (a) Substituir o SQLite checkpointer por Postgres; (b) armazenar o `TOKEN_REGISTRO` num segredo (Vault/KMS) e rotacioná-lo; (c) adicionar observabilidade real (Langfuse/OpenTelemetry) para rastrear custo e latência; (d) autenticar o aprovador (OAuth/SSO + MFA) em vez de confiar na matrícula; (e) HTTPS no MCP com mTLS, não stdio; (f) feature flags para o guardrail e limites de tentativa.
-6. (não implementado)
-7. (não implementado)
-8. (não implementado)
+4. **Qual dado veio do MCP, qual de API externa e qual de tool local? Por que?** MCP: cadastro de servidores, escala, normas, diárias (dados próprios da organização; isola o LLM dos CSVs e permite autorização centralizada). API externa: feriados BrasilAPI e câmbio Frankfurter (dados do mundo que mudam fora da organização). Tool local: `cotacao_dolar` embrulha a API para o Financeiro (cache + fallback). A divisão separa **o que é nosso** (MCP), **o que é do mundo** (APIs) e **o que é cálculo próprio** (Python puro em `etapa06_regras.py`).
+5. **O que você mudaria para colocar este sistema em produção?** (a) Substituir o SQLite checkpointer por Postgres; (b) armazenar o `TOKEN_REGISTRO` num segredo (Vault/KMS) e rotacioná-lo; (c) adicionar observabilidade real (Langfuse/OpenTelemetry) além do JSONL local; (d) autenticar o aprovador (OAuth/SSO + MFA) em vez de confiar na matrícula; (e) HTTPS no MCP com mTLS, não stdio; (f) feature flags para o guardrail, limites de tentativa e os opcionais A/B/C.
+6. **🆕 A: votar triplica o custo da extração. Em que pedidos vale a pena?** Em pedidos ambíguos ou com datas relativas (C9 "perto da Páscoa", C5 "em agosto"), onde o custo de uma extração errada (gravar o pedido no dia errado, perder a antecedência N4) é muito maior do que o custo de 3 chamadas ao modelo. Em pedidos nítidos (C1, C8), a votação é desperdício. O ideal seria ligar a votação só quando o classificador do guardrail dá nota média (zona cinzenta) — reusa o sinal que já temos.
+7. **🆕 B: hook, guardrail e regra no server podem barrar uma ação. Qual a diferença de onde cada um atua?** O **guardrail de entrada** atua ANTES do agente ver o texto — barra pelo CONTEÚDO (CPF, "ignore as regras"). O **hook de governança** atua ANTES de cada tool do agente — barra pelo COMPORTAMENTO em tempo de execução (tool fora da lista, orçamento estourado). A **regra no server** atua ANTES da gravação — barra pela AUTORIZAÇÃO (token, N8). Camadas defesa-em-profundidade: nenhuma delas sozinha basta, cada uma pega um tipo de problema diferente.
+8. **🆕 C: o que muda quando o humano decide a entrada em vez da saída? Quem é consultado em cada pausa?** Na **saída** (Etapa 8), quem decide é a **chefia** do servidor (`servidor["chefia"]`), e a pergunta é "aprova este despacho?". Na **entrada** (🆕 C), quem decide é o **atendente do RH**, e a pergunta é "este texto deve seguir como pedido?". A pausa na entrada acontece ANTES de qualquer processamento (nenhum token gasto com especialistas), e a decisão é só triagem; a pausa na saída acontece com o pedido já analisado, e a decisão tem efeito definitivo. Dois humanos diferentes, dois momentos, dois tipos de risco.
 
 ## De onde veio cada parte
 
