@@ -1,0 +1,26 @@
+# Segredos: NUNCA versionar
+.env
+.env.*
+!.env.example
+
+# Saídas geradas ao rodar o exercício
+saidas/*
+!saidas/.gitkeep
+
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# IDEs e OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
